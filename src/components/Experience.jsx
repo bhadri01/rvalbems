@@ -45,7 +45,7 @@ export const Experience = () => {
       <Float rotation-x={-Math.PI / 40} floatIntensity={0.5} speed={2} rotationIntensity={0.2}>
         <Book />
       </Float>
-      <OrbitControls {...controlsConfig} />
+      <OrbitControls />
       <ambientLight intensity={1.5} />
       <directionalLight
         position={[2, 5, 2]}

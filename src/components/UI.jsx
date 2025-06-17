@@ -165,6 +165,26 @@ export const UI = () => {
             </div>
           </div>
         )}
+
+        {/* Mobile next/prev buttons */}
+        {isMobile && (
+          <div className="pointer-events-auto flex justify-start gap-2 items-center px-2 pb-2">
+            <button
+              className="bg-black/60 text-white px-4 py-1 rounded-full text-base font-semibold disabled:opacity-40"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+            >
+              Prev
+            </button>
+            <button
+              className="bg-black/60 text-white px-4 py-1 rounded-full text-base font-semibold disabled:opacity-40"
+              onClick={() => setPage((p) => Math.min(pages.length, p + 1))}
+              disabled={page === pages.length}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </main>
 
       <div className="fixed inset-0 flex items-center -rotate-2 select-none">

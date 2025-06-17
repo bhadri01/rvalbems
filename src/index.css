@@ -16,3 +16,7 @@ body {
 .outline-text {
   -webkit-text-stroke: 1px white;
 }
+
+canvas {
+  touch-action: none; /* Prevent zoom/pan interfering with gestures */
+}

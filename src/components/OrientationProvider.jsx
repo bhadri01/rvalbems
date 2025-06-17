@@ -1,16 +1,10 @@
 "use client"
 
-import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 
-interface OrientationContextType {
-  isMobile: boolean
-  isLandscape: boolean
-  showRotateAlert: boolean
-}
 
-const OrientationContext = createContext<OrientationContextType>({
+const OrientationContext = createContext({
   isMobile: false,
   isLandscape: false,
   showRotateAlert: false,
@@ -18,7 +12,7 @@ const OrientationContext = createContext<OrientationContextType>({
 
 export const useOrientation = () => useContext(OrientationContext)
 
-export function OrientationProvider({ children }: { children: React.ReactNode }) {
+export function OrientationProvider({ children }) {
   const [isMobile, setIsMobile] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
   const [showRotateAlert, setShowRotateAlert] = useState(false)
