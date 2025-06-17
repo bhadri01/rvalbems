@@ -1,16 +1,11 @@
-/* 
-  Access control for static assets
-  Override MIME type for .wasm and others
-*/
-
-# For WebAssembly
 /*.wasm
   Content-Type: application/wasm
 
-# For GLB/GLTF models (Three.js)
 /*.glb
   Content-Type: model/gltf-binary
 
-# For JavaScript modules (optional)
+/*.gltf
+  Content-Type: model/gltf+json
+
 /*.js
   Content-Type: application/javascript
