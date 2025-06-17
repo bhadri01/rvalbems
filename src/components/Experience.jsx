@@ -21,10 +21,10 @@ export const Experience = () => {
         panSpeed={0.5}
         rotateSpeed={0.5}
       />
-      <Environment preset="forest"></Environment>
+      <ambientLight intensity={1.5} />
       <directionalLight
         position={[2, 5, 2]}
-        intensity={1.2}
+        intensity={0.5}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
