@@ -86,11 +86,49 @@ export const UI = () => {
     playFlipSound();
   }, [page]);
 
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingComplete, setLoadingComplete] = useState(false);
+
+  useEffect(() => {
+    if (pages.length === 0) {
+      setLoadingComplete(false);
+      setLoadingProgress(0);
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 10 + 5; // Simulate loading
+        setLoadingProgress(Math.min(progress, 95));
+      }, 100);
+      return () => clearInterval(interval);
+    } else {
+      setLoadingProgress(100);
+      setTimeout(() => setLoadingComplete(true), 400); // Small delay for smoothness
+    }
+  }, [pages.length]);
+
+  if (!loadingComplete) {
+    return (
+      <div
+      className="fixed inset-0 flex flex-col items-center justify-center z-50"
+      style={{
+        background: "radial-gradient(#004959, #232323 80%)",
+      }}
+      >
+      <h1 className="text-white text-2xl mb-6">Loading...</h1>
+      <div className="w-64 h-3 bg-white/30 rounded-full overflow-hidden">
+        <div
+        className="h-full bg-[white] transition-all duration-300 border-2 border-white"
+        style={{ width: `${loadingProgress}%` }}
+        />
+      </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <main className="pointer-events-none select-none z-10 fixed inset-0 flex justify-between flex-col">
         <a
-          className="pointer-events-auto ml-10"
+          className="pointer-events-auto"
           href="#"
         >
           <img className="w-40" src="/images/logo.png" alt="Logo" />

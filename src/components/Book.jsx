@@ -279,6 +279,90 @@ export const Book = ({ ...props }) => {
     };
   }, [page]);
 
+  // if (pages.length === 0)
+  //   return (
+  //     <Html center>
+  //       <div
+  //         style={{
+  //           display: "flex",
+  //           flexDirection: "column",
+  //           alignItems: "center",
+  //           perspective: 1200,
+  //         }}
+  //       >
+  //         <div
+  //           className="glassy-book-container"
+  //           style={{
+  //             width: 460,
+  //             height: 270,
+  //             display: "flex",
+  //             justifyContent: "center",
+  //             alignItems: "center",
+  //             gap: "6px",
+  //             borderRadius: "12px",
+  //             backdropFilter: "blur(8px)",
+  //             transform: "rotateY(-10deg)",
+  //             transformStyle: "preserve-3d",
+  //             background:
+  //               "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0))",
+  //             border: "1px solid rgba(255, 255, 255, 0.1)",
+  //             boxShadow:
+  //               "0 10px 30px rgba(0,0,0,0.3), inset 0 0 12px rgba(255,255,255,0.05)",
+  //           }}
+  //         >
+  //           <div className="glassy-page left-glass" />
+  //           <div className="glassy-spine" />
+  //           <div className="glassy-page right-glass" />
+  //         </div>
+
+  //         <style>{`
+  //         @keyframes shimmer {
+  //           0% {
+  //             background-position: -200% 0;
+  //           }
+  //           100% {
+  //             background-position: 200% 0;
+  //           }
+  //         }
+
+  //         .glassy-page {
+  //           width: 200px;
+  //           height: 260px;
+  //           border-radius: 8px;
+  //           position: relative;
+  //           overflow: hidden;
+  //           background: linear-gradient(
+  //             120deg,
+  //             rgba(255, 255, 255, 0.05) 25%,
+  //             rgba(255, 255, 255, 0.15) 50%,
+  //             rgba(255, 255, 255, 0.05) 75%
+  //           );
+  //           background-size: 400% 100%;
+  //           animation: shimmer 1.8s infinite linear;
+  //           backdrop-filter: blur(6px);
+  //           box-shadow: inset 0 0 6px rgba(255,255,255,0.1);
+  //         }
+
+  //         .glassy-spine {
+  //           width: 12px;
+  //           height: 260px;
+  //           background: rgba(255, 255, 255, 0.05);
+  //           box-shadow: inset 0 0 6px rgba(255,255,255,0.05);
+  //           border-radius: 4px;
+  //         }
+
+  //         .left-glass {
+  //           transform: rotateY(3deg);
+  //         }
+
+  //         .right-glass {
+  //           transform: rotateY(-3deg);
+  //         }
+  //       `}</style>
+  //       </div>
+  //     </Html>
+  //   );
+
   return (
     <group {...props} rotation-y={-Math.PI / 2}>
       {[...pages].map((pageData, index) => (
