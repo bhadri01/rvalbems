@@ -1,8 +1,10 @@
-import { Html, useCursor, useTexture } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useAtom } from "jotai";
-import { easing } from "maath";
-import { useEffect, useMemo, useRef, useState } from "react";
+"use client"
+
+import { useCursor, useTexture } from "@react-three/drei"
+import { useFrame } from "@react-three/fiber"
+import { useAtom } from "jotai"
+import { easing } from "maath"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   Bone,
   BoxGeometry,
@@ -15,60 +17,67 @@ import {
   SRGBColorSpace,
   Uint16BufferAttribute,
   Vector3,
-} from "three";
-import { degToRad } from "three/src/math/MathUtils.js";
-import { pageAtom, pagesAtom } from "./UI";
+} from "three"
+import { degToRad } from "three/src/math/MathUtils.js"
+import { pageAtom, pagesAtom } from "./UI"
+import { useOrientation } from "./OrientationProvider"
 
-const easingFactor = 0.5; // Controls the speed of the easing
-const easingFactorFold = 0.3; // Controls the speed of the easing
-const insideCurveStrength = 0.18; // Controls the strength of the curve
-const outsideCurveStrength = 0.05; // Controls the strength of the curve
-const turningCurveStrength = 0.09; // Controls the strength of the curve
+const easingFactor = 0.5
+const easingFactorFold = 0.3
+const insideCurveStrength = 0.18
+const outsideCurveStrength = 0.05
+const turningCurveStrength = 0.09
 
-const PAGE_WIDTH = 2.58;
-const PAGE_HEIGHT = 1.71; // 4:3 aspect ratio
-const PAGE_DEPTH = 0.003;
-const PAGE_SEGMENTS = 30;
-const SEGMENT_WIDTH = PAGE_WIDTH / PAGE_SEGMENTS;
-
-const pageGeometry = new BoxGeometry(
-  PAGE_WIDTH,
-  PAGE_HEIGHT,
-  PAGE_DEPTH,
-  PAGE_SEGMENTS,
-  2
-);
-
-pageGeometry.translate(PAGE_WIDTH / 2, 0, 0);
-
-const position = pageGeometry.attributes.position;
-const vertex = new Vector3();
-const skinIndexes = [];
-const skinWeights = [];
-
-for (let i = 0; i < position.count; i++) {
-  // ALL VERTICES
-  vertex.fromBufferAttribute(position, i); // get the vertex
-  const x = vertex.x; // get the x position of the vertex
-
-  const skinIndex = Math.max(0, Math.floor(x / SEGMENT_WIDTH)); // calculate the skin index
-  let skinWeight = (x % SEGMENT_WIDTH) / SEGMENT_WIDTH; // calculate the skin weight
-
-  skinIndexes.push(skinIndex, skinIndex + 1, 0, 0); // set the skin indexes
-  skinWeights.push(1 - skinWeight, skinWeight, 0, 0); // set the skin weights
+// Responsive page dimensions
+const getPageDimensions = (isMobile, isLandscape) => {
+  if (isMobile && isLandscape) {
+    return {
+      PAGE_WIDTH: 3.2,
+      PAGE_HEIGHT: 2.1,
+      PAGE_DEPTH: 0.003,
+      PAGE_SEGMENTS: 30,
+    }
+  }
+  return {
+    PAGE_WIDTH: 2.58,
+    PAGE_HEIGHT: 1.71,
+    PAGE_DEPTH: 0.003,
+    PAGE_SEGMENTS: 30,
+  }
 }
 
-pageGeometry.setAttribute(
-  "skinIndex",
-  new Uint16BufferAttribute(skinIndexes, 4)
-);
-pageGeometry.setAttribute(
-  "skinWeight",
-  new Float32BufferAttribute(skinWeights, 4)
-);
+const createPageGeometry = (dimensions) => {
+  const { PAGE_WIDTH, PAGE_HEIGHT, PAGE_DEPTH, PAGE_SEGMENTS } = dimensions
+  const SEGMENT_WIDTH = PAGE_WIDTH / PAGE_SEGMENTS
 
-const whiteColor = new Color("white");
-const emissiveColor = new Color("orange");
+  const pageGeometry = new BoxGeometry(PAGE_WIDTH, PAGE_HEIGHT, PAGE_DEPTH, PAGE_SEGMENTS, 2)
+
+  pageGeometry.translate(PAGE_WIDTH / 2, 0, 0)
+
+  const position = pageGeometry.attributes.position
+  const vertex = new Vector3()
+  const skinIndexes = []
+  const skinWeights = []
+
+  for (let i = 0; i < position.count; i++) {
+    vertex.fromBufferAttribute(position, i)
+    const x = vertex.x
+
+    const skinIndex = Math.max(0, Math.floor(x / SEGMENT_WIDTH))
+    const skinWeight = (x % SEGMENT_WIDTH) / SEGMENT_WIDTH
+
+    skinIndexes.push(skinIndex, skinIndex + 1, 0, 0)
+    skinWeights.push(1 - skinWeight, skinWeight, 0, 0)
+  }
+
+  pageGeometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndexes, 4))
+  pageGeometry.setAttribute("skinWeight", new Float32BufferAttribute(skinWeights, 4))
+
+  return { pageGeometry, SEGMENT_WIDTH }
+}
+
+const whiteColor = new Color("white")
+const emissiveColor = new Color("orange")
 
 const pageMaterials = [
   new MeshStandardMaterial({
@@ -83,34 +92,38 @@ const pageMaterials = [
   new MeshStandardMaterial({
     color: whiteColor,
   }),
-];
+]
 
 const Page = ({ number, front, back, page, opened, bookClosed, ...props }) => {
-  const [pages] = useAtom(pagesAtom);
-  const [picture, picture2] = useTexture([`${front}`, `${back}`]);
-  picture.colorSpace = picture2.colorSpace = SRGBColorSpace;
-  const group = useRef();
-  const turnedAt = useRef(0);
-  const lastOpened = useRef(opened);
+  const [pages] = useAtom(pagesAtom)
+  const [picture, picture2] = useTexture([front, back])
+  const { isMobile, isLandscape } = useOrientation()
 
-  const skinnedMeshRef = useRef();
+  picture.colorSpace = picture2.colorSpace = SRGBColorSpace
+  const group = useRef()
+  const turnedAt = useRef(0)
+  const lastOpened = useRef(opened)
+  const skinnedMeshRef = useRef()
+
+  const dimensions = getPageDimensions(isMobile, isLandscape)
+  const { pageGeometry, SEGMENT_WIDTH } = useMemo(() => createPageGeometry(dimensions), [isMobile, isLandscape])
 
   const manualSkinnedMesh = useMemo(() => {
-    const bones = [];
-    for (let i = 0; i <= PAGE_SEGMENTS; i++) {
-      let bone = new Bone();
-      bones.push(bone);
+    const bones = []
+    for (let i = 0; i <= dimensions.PAGE_SEGMENTS; i++) {
+      const bone = new Bone()
+      bones.push(bone)
       if (i === 0) {
-        bone.position.x = 0;
+        bone.position.x = 0
       } else {
-        bone.position.x = SEGMENT_WIDTH;
+        bone.position.x = SEGMENT_WIDTH
       }
       if (i > 0) {
-        bones[i - 1].add(bone); // attach the new bone to the previous bone
+        bones[i - 1].add(bone)
       }
     }
-    const skeleton = new Skeleton(bones);
-    const isCover = number === 0 || number === pages.length - 1;
+    const skeleton = new Skeleton(bones)
+    const isCover = number === 0 || number === pages.length - 1
     const materials = [
       ...pageMaterials,
       new MeshStandardMaterial({
@@ -118,7 +131,7 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }) => {
         map: picture,
         roughness: 0.1,
         emissive: emissiveColor,
-        emissiveIntensity: isCover ? 0.05 : 0.15, // Dim front/back covers
+        emissiveIntensity: isCover ? 0.05 : 0.15,
       }),
       new MeshStandardMaterial({
         color: whiteColor,
@@ -127,241 +140,136 @@ const Page = ({ number, front, back, page, opened, bookClosed, ...props }) => {
         emissive: emissiveColor,
         emissiveIntensity: isCover ? 0.05 : 0.15,
       }),
-    ];
-    const mesh = new SkinnedMesh(pageGeometry, materials);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.frustumCulled = false;
-    mesh.add(skeleton.bones[0]);
-    mesh.bind(skeleton);
-    return mesh;
-  }, []);
-
-  // useHelper(skinnedMeshRef, SkeletonHelper, "red");
+    ]
+    const mesh = new SkinnedMesh(pageGeometry, materials)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.frustumCulled = false
+    mesh.add(skeleton.bones[0])
+    mesh.bind(skeleton)
+    return mesh
+  }, [pageGeometry, SEGMENT_WIDTH, picture, picture2, pages.length, number])
 
   useFrame((_, delta) => {
     if (!skinnedMeshRef.current) {
-      return;
+      return
     }
 
-    const emissiveIntensity = highlighted ? 0.02 : 0;
-    skinnedMeshRef.current.material[4].emissiveIntensity =
-      skinnedMeshRef.current.material[5].emissiveIntensity = MathUtils.lerp(
-        skinnedMeshRef.current.material[4].emissiveIntensity,
-        emissiveIntensity,
-        0.01
-      );
+    const emissiveIntensity = highlighted ? 0.02 : 0
+    skinnedMeshRef.current.material[4].emissiveIntensity = skinnedMeshRef.current.material[5].emissiveIntensity =
+      MathUtils.lerp(skinnedMeshRef.current.material[4].emissiveIntensity, emissiveIntensity, 0.01)
 
     if (lastOpened.current !== opened) {
-      turnedAt.current = +new Date();
-      lastOpened.current = opened;
+      turnedAt.current = +new Date()
+      lastOpened.current = opened
     }
-    let turningTime = Math.min(400, new Date() - turnedAt.current) / 400;
-    turningTime = Math.sin(turningTime * Math.PI);
+    let turningTime = Math.min(400, new Date().getTime() - turnedAt.current) / 400
+    turningTime = Math.sin(turningTime * Math.PI)
 
-    let targetRotation = opened ? -Math.PI / 2 : Math.PI / 2;
+    let targetRotation = opened ? -Math.PI / 2 : Math.PI / 2
     if (!bookClosed) {
-      targetRotation += degToRad(number * 0.8);
+      targetRotation += degToRad(number * 0.8)
     }
 
-    const bones = skinnedMeshRef.current.skeleton.bones;
+    const bones = skinnedMeshRef.current.skeleton.bones
     for (let i = 0; i < bones.length; i++) {
-      const target = i === 0 ? group.current : bones[i];
+      const target = i === 0 ? group.current : bones[i]
 
-      const insideCurveIntensity = i < 8 ? Math.sin(i * 0.2 + 0.25) : 0;
-      const outsideCurveIntensity = i >= 8 ? Math.cos(i * 0.3 + 0.09) : 0;
-      const turningIntensity =
-        Math.sin(i * Math.PI * (1 / bones.length)) * turningTime;
+      const insideCurveIntensity = i < 8 ? Math.sin(i * 0.2 + 0.25) : 0
+      const outsideCurveIntensity = i >= 8 ? Math.cos(i * 0.3 + 0.09) : 0
+      const turningIntensity = Math.sin(i * Math.PI * (1 / bones.length)) * turningTime
       let rotationAngle =
         insideCurveStrength * insideCurveIntensity * targetRotation -
         outsideCurveStrength * outsideCurveIntensity * targetRotation +
-        turningCurveStrength * turningIntensity * targetRotation;
-      let foldRotationAngle = degToRad(Math.sign(targetRotation) * 2);
+        turningCurveStrength * turningIntensity * targetRotation
+      let foldRotationAngle = degToRad(Math.sign(targetRotation) * 2)
       if (bookClosed) {
         if (i === 0) {
-          rotationAngle = targetRotation;
-          foldRotationAngle = 0;
+          rotationAngle = targetRotation
+          foldRotationAngle = 0
         } else {
-          rotationAngle = 0;
-          foldRotationAngle = 0;
+          rotationAngle = 0
+          foldRotationAngle = 0
         }
       }
-      easing.dampAngle(
-        target.rotation,
-        "y",
-        rotationAngle,
-        easingFactor,
-        delta
-      );
+      easing.dampAngle(target.rotation, "y", rotationAngle, easingFactor, delta)
 
-      const foldIntensity =
-        i > 8
-          ? Math.sin(i * Math.PI * (1 / bones.length) - 0.5) * turningTime
-          : 0;
-      easing.dampAngle(
-        target.rotation,
-        "x",
-        foldRotationAngle * foldIntensity,
-        easingFactorFold,
-        delta
-      );
+      const foldIntensity = i > 8 ? Math.sin(i * Math.PI * (1 / bones.length) - 0.5) * turningTime : 0
+      easing.dampAngle(target.rotation, "x", foldRotationAngle * foldIntensity, easingFactorFold, delta)
     }
-  });
+  })
 
-  const [_, setPage] = useAtom(pageAtom);
-  const [highlighted, setHighlighted] = useState(false);
-  useCursor(highlighted);
+  const [_, setPage] = useAtom(pageAtom)
+  const [highlighted, setHighlighted] = useState(false)
+  useCursor(highlighted)
 
   return (
     <group
       {...props}
       ref={group}
       onPointerEnter={(e) => {
-        e.stopPropagation();
-        setHighlighted(true);
+        e.stopPropagation()
+        setHighlighted(true)
       }}
       onPointerLeave={(e) => {
-        e.stopPropagation();
-        setHighlighted(false);
+        e.stopPropagation()
+        setHighlighted(false)
       }}
       onClick={(e) => {
-        e.stopPropagation();
-        setPage(opened ? number : number + 1);
-        setHighlighted(false);
+        e.stopPropagation()
+        setPage(opened ? number : number + 1)
+        setHighlighted(false)
       }}
     >
       <primitive
         object={manualSkinnedMesh}
         ref={skinnedMeshRef}
-        position-z={-number * PAGE_DEPTH + page * PAGE_DEPTH}
+        position-z={-number * dimensions.PAGE_DEPTH + page * dimensions.PAGE_DEPTH}
       />
     </group>
-  );
-};
+  )
+}
 
 export const Book = ({ ...props }) => {
-  const [page] = useAtom(pageAtom);
-  const [pages] = useAtom(pagesAtom);
-  const [delayedPage, setDelayedPage] = useState(page);
+  const [page] = useAtom(pageAtom)
+  const [pages] = useAtom(pagesAtom)
+  const [delayedPage, setDelayedPage] = useState(page)
 
   useEffect(() => {
-    pages.forEach((page) => {
-      useTexture.preload(page.front);
-      useTexture.preload(page.back);
-    });
-  }, []);
+    pages.forEach((pageData) => {
+      useTexture.preload(pageData.front)
+      useTexture.preload(pageData.back)
+    })
+  }, [pages])
 
   useEffect(() => {
-    let timeout;
+    let timeout
     const goToPage = () => {
       setDelayedPage((delayedPage) => {
         if (page === delayedPage) {
-          return delayedPage;
+          return delayedPage
         } else {
           timeout = setTimeout(
             () => {
-              goToPage();
+              goToPage()
             },
-            Math.abs(page - delayedPage) > 2 ? 50 : 150
-          );
+            Math.abs(page - delayedPage) > 2 ? 50 : 150,
+          )
           if (page > delayedPage) {
-            return delayedPage + 1;
+            return delayedPage + 1
           }
           if (page < delayedPage) {
-            return delayedPage - 1;
+            return delayedPage - 1
           }
         }
-      });
-    };
-    goToPage();
+        return delayedPage
+      })
+    }
+    goToPage()
     return () => {
-      clearTimeout(timeout);
-    };
-  }, [page]);
-
-  // if (pages.length === 0)
-  //   return (
-  //     <Html center>
-  //       <div
-  //         style={{
-  //           display: "flex",
-  //           flexDirection: "column",
-  //           alignItems: "center",
-  //           perspective: 1200,
-  //         }}
-  //       >
-  //         <div
-  //           className="glassy-book-container"
-  //           style={{
-  //             width: 460,
-  //             height: 270,
-  //             display: "flex",
-  //             justifyContent: "center",
-  //             alignItems: "center",
-  //             gap: "6px",
-  //             borderRadius: "12px",
-  //             backdropFilter: "blur(8px)",
-  //             transform: "rotateY(-10deg)",
-  //             transformStyle: "preserve-3d",
-  //             background:
-  //               "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0))",
-  //             border: "1px solid rgba(255, 255, 255, 0.1)",
-  //             boxShadow:
-  //               "0 10px 30px rgba(0,0,0,0.3), inset 0 0 12px rgba(255,255,255,0.05)",
-  //           }}
-  //         >
-  //           <div className="glassy-page left-glass" />
-  //           <div className="glassy-spine" />
-  //           <div className="glassy-page right-glass" />
-  //         </div>
-
-  //         <style>{`
-  //         @keyframes shimmer {
-  //           0% {
-  //             background-position: -200% 0;
-  //           }
-  //           100% {
-  //             background-position: 200% 0;
-  //           }
-  //         }
-
-  //         .glassy-page {
-  //           width: 200px;
-  //           height: 260px;
-  //           border-radius: 8px;
-  //           position: relative;
-  //           overflow: hidden;
-  //           background: linear-gradient(
-  //             120deg,
-  //             rgba(255, 255, 255, 0.05) 25%,
-  //             rgba(255, 255, 255, 0.15) 50%,
-  //             rgba(255, 255, 255, 0.05) 75%
-  //           );
-  //           background-size: 400% 100%;
-  //           animation: shimmer 1.8s infinite linear;
-  //           backdrop-filter: blur(6px);
-  //           box-shadow: inset 0 0 6px rgba(255,255,255,0.1);
-  //         }
-
-  //         .glassy-spine {
-  //           width: 12px;
-  //           height: 260px;
-  //           background: rgba(255, 255, 255, 0.05);
-  //           box-shadow: inset 0 0 6px rgba(255,255,255,0.05);
-  //           border-radius: 4px;
-  //         }
-
-  //         .left-glass {
-  //           transform: rotateY(3deg);
-  //         }
-
-  //         .right-glass {
-  //           transform: rotateY(-3deg);
-  //         }
-  //       `}</style>
-  //       </div>
-  //     </Html>
-  //   );
+      clearTimeout(timeout)
+    }
+  }, [page])
 
   return (
     <group {...props} rotation-y={-Math.PI / 2}>
@@ -376,5 +284,5 @@ export const Book = ({ ...props }) => {
         />
       ))}
     </group>
-  );
-};
+  )
+}
